@@ -67,6 +67,9 @@
     font-size: calc(var(--u) * 4.4); font-weight: 700; text-transform: uppercase;
     background: #2a3d4d; border-radius: calc(var(--u) * 1.2); border: calc(var(--u) * .5) solid transparent; }
   .key.wide { flex: 1.9 1 0; font-size: calc(var(--u) * 3.2); }
+  .krow.enter-row { margin-top: calc(var(--u) * .4); }
+  .krow.enter-row .key { flex: 1 1 0; font-size: calc(var(--u) * 4); font-weight: 800;
+    background: #2f4558; letter-spacing: .03em; }
   .key.g { background: var(--green); }
   .key.y { background: var(--yellow); color: #2a2100; }
   .key.b { background: var(--brown); color: #d9c3b0; }
@@ -123,7 +126,8 @@
   const LAYOUT = [
     ['й','ц','у','к','е','н','г','ш','щ','з','х','ъ'],
     ['ф','ы','в','а','п','р','о','л','д','ж','э'],
-    ['ENTER','я','ч','с','м','и','т','ь','б','ю','BACK']
+    ['я','ч','с','м','и','т','ь','б','ю','BACK'],
+    ['ENTER']
   ];
   const $ = (id) => document.getElementById(id);
   const boardEl = $('board'), kbEl = $('kb'), hintEl = $('hint');
@@ -163,10 +167,11 @@
   function buildKeyboard() {
     kbEl.innerHTML = ''; keyEls.length = 0;
     LAYOUT.forEach((keys) => {
-      const rowEl = document.createElement('div'); rowEl.className = 'krow';
+      const rowEl = document.createElement('div');
+      rowEl.className = 'krow' + (keys.length === 1 && keys[0] === 'ENTER' ? ' enter-row' : '');
       const arr = keys.map((k) => {
         const d = document.createElement('div');
-        d.className = 'key' + (k.length > 1 ? ' wide' : '');
+        d.className = 'key' + (k.length > 1 && k !== 'ENTER' ? ' wide' : '');
         d.textContent = k === 'ENTER' ? 'Ввод' : k === 'BACK' ? '⌫' : k;
         d.dataset.k = k;
         d.addEventListener('click', () => tapKey(d));
