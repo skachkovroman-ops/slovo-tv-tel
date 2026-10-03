@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Слово</title>
+<style>
+  :root {
+    --u: min(1vh, 0.5625vw);            /* 1 «единица» = 1% высоты экрана 16:9 */
+    --bg: #0f1b24;
+    --tile: #1b2b38;
+    --line: #35516a;
+    --green: #3e9b55;
+    --yellow: #e5b22e;
+    --brown: #7b4a2a;
+    --text: #f2ede4;
+    --dim: #93a4b3;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); overflow: hidden;
+    font-family: "Roboto", "Noto Sans", sans-serif; -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+
+  #app { height: 100%; display: flex; align-items: center; justify-content: center;
+    gap: calc(var(--u) * 9); padding: calc(var(--u) * 5) calc(var(--u) * 6); }
+
+  /* ---------- телефон: экран уже, чем выше → колонка вместо ряда ---------- */
+  @media (max-aspect-ratio: 11/10) {
+    :root { --u: min(1.3vw, 0.6vh); }   /* ширина экрана — главное ограничение в портрете */
+    #app { flex-direction: column; justify-content: flex-start;
+      gap: calc(var(--u) * 2.6); padding: calc(var(--u) * 2.8) calc(var(--u) * 3); overflow-y: auto; }
+    #side { width: 100%; align-items: center; text-align: center; gap: calc(var(--u) * 2); }
+    h1 { font-size: calc(var(--u) * 6); }
+    #legend { flex-wrap: wrap; justify-content: center; row-gap: calc(var(--u) * .8); }
+    .key { min-width: 0; }   /* разрешаем клавишам сжиматься теснее текста, чтобы ряд из 12 букв не вылезал за экран */
+  }
+  @media (hover: none) {
+    .tile, .key, #again { cursor: pointer; }
+  }
+
+  /* ---------- сетка попыток ---------- */
+  #board { display: grid; grid-template-rows: repeat(5, 1fr); gap: calc(var(--u) * 1.4); }
+  .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: calc(var(--u) * 1.4); }
+  .tile { width: calc(var(--u) * 11.6); height: calc(var(--u) * 11.6);
+    display: flex; align-items: center; justify-content: center;
+    font-size: calc(var(--u) * 6.4); font-weight: 800; text-transform: uppercase;
+    background: var(--tile); border: calc(var(--u) * .45) solid var(--line); border-radius: calc(var(--u) * 1.2); }
+  .tile.filled { border-color: #8aa4bb; animation: pop .12s ease-out; }
+  .tile.g { background: var(--green);  border-color: var(--green); }
+  .tile.y { background: var(--yellow); border-color: var(--yellow); color: #2a2100; }
+  .tile.b { background: var(--brown);  border-color: var(--brown); }
+  .tile.flip { animation: flip .6s ease-in-out; }
+  .row.shake { animation: shake .4s; }
+  @keyframes pop  { 50% { transform: scale(1.1); } }
+  @keyframes flip { 50% { transform: rotateX(90deg); } }
+  @keyframes shake { 20%,60% { transform: translateX(-1.2vh); } 40%,80% { transform: translateX(1.2vh); } }
+
+  /* ---------- правая колонка ---------- */
+  #side { display: flex; flex-direction: column; gap: calc(var(--u) * 3.2); width: calc(var(--u) * 92); }
+  h1 { font-size: calc(var(--u) * 8); font-weight: 900; letter-spacing: .02em; line-height: 1; }
+  #hint { font-size: calc(var(--u) * 3); color: var(--dim); min-height: calc(var(--u) * 4); }
+  #hint.err { color: var(--yellow); }
+
+  #kb { display: flex; flex-direction: column; gap: calc(var(--u) * 1.2); }
+  .krow { display: flex; gap: calc(var(--u) * 1.2); justify-content: center; }
+  .key { flex: 1 1 0; height: calc(var(--u) * 9.4); display: flex; align-items: center; justify-content: center;
+    font-size: calc(var(--u) * 4.4); font-weight: 700; text-transform: uppercase;
+    background: #2a3d4d; border-radius: calc(var(--u) * 1.2); border: calc(var(--u) * .5) solid transparent; }
+  .key.wide { flex: 1.9 1 0; font-size: calc(var(--u) * 3.2); }
+  .key.g { background: var(--green); }
+  .key.y { background: var(--yellow); color: #2a2100; }
+  .key.b { background: var(--brown); color: #d9c3b0; }
+  .key.focus { border-color: #fff; transform: scale(1.12); position: relative; z-index: 1;
+    box-shadow: 0 0 0 calc(var(--u) * .5) rgba(255,255,255,.35); }
+
+  #legend { display: flex; gap: calc(var(--u) * 3.4); font-size: calc(var(--u) * 2.7); color: var(--dim); }
+  #legend span { display: flex; align-items: center; gap: calc(var(--u) * 1); }
+  #legend i { width: calc(var(--u) * 2.6); height: calc(var(--u) * 2.6); border-radius: calc(var(--u) * .6); display: inline-block; }
+  #stats { font-size: calc(var(--u) * 2.7); color: var(--dim); }
+
+  /* ---------- итог ---------- */
+  #over { position: fixed; inset: 0; background: rgba(8,14,20,.97); display: none;
+    align-items: center; justify-content: center; flex-direction: column; gap: calc(var(--u) * 3.5); }
+  #over.show { display: flex; }
+  #over h2 { font-size: calc(var(--u) * 7.5); font-weight: 900; }
+  #over p { font-size: calc(var(--u) * 3.2); color: var(--dim); }
+  #answer { display: flex; gap: calc(var(--u) * 1.2); }
+  #answer .tile { width: calc(var(--u) * 9.5); height: calc(var(--u) * 9.5); font-size: calc(var(--u) * 5.4); }
+  #again { margin-top: calc(var(--u) * 1.5); padding: calc(var(--u) * 2.2) calc(var(--u) * 6);
+    font-size: calc(var(--u) * 4); font-weight: 800; background: #2a3d4d; border-radius: calc(var(--u) * 1.6);
+    border: calc(var(--u) * .6) solid #fff; box-shadow: 0 0 0 calc(var(--u) * .6) rgba(255,255,255,.35); }
+
+  @media (prefers-reduced-motion: reduce) { .tile, .row { animation: none !important; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="board" aria-label="Поле попыток"></div>
+  <div id="side">
+    <h1>Слово</h1>
+    <div id="hint">Угадайте слово из 5 букв</div>
+    <div id="kb"></div>
+    <div id="legend">
+      <span><i style="background:var(--green)"></i>на своём месте</span>
+      <span><i style="background:var(--yellow)"></i>есть в слове</span>
+      <span><i style="background:var(--brown)"></i>нет в слове</span>
+    </div>
+    <div id="stats"></div>
+  </div>
+</div>
+
+<div id="over">
+  <h2 id="over-title"></h2>
+  <p>Загаданное слово</p>
+  <div id="answer"></div>
+  <div id="again">Играть снова</div>
+</div>
+
+<script src="words.js"></script>
+<script src="game.js"></script>
+<script>
+(function () {
+  const LAYOUT = [
+    ['й','ц','у','к','е','н','г','ш','щ','з','х','ъ'],
+    ['ф','ы','в','а','п','р','о','л','д','ж','э'],
+    ['ENTER','я','ч','с','м','и','т','ь','б','ю','BACK']
+  ];
+  const $ = (id) => document.getElementById(id);
+  const boardEl = $('board'), kbEl = $('kb'), hintEl = $('hint');
+
+  let answer, row, cur, busy, over, kr = 1, kc = 5;
+  const keyEls = [];     // keyEls[r][c] → DOM
+  const keyState = {};   // буква → 'g' | 'y' | 'b'
+  let tiles = [];        // tiles[r][c] → DOM
+
+  /* ---------- сохранение (необязательное) ---------- */
+  function load(k, def) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch (e) { return def; } }
+  function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  let stats = load('slovo.stats', { played: 0, won: 0 });
+
+  function pickWord() {   // «мешок»: слова не повторяются, пока не пройдут все
+    let bag = load('slovo.bag', []);
+    bag = bag.filter((i) => i < WORDS.length);
+    if (!bag.length) {
+      bag = WORDS.map((_, i) => i);
+      for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
+    }
+    const w = WORDS[bag.pop()];
+    save('slovo.bag', bag);
+    return w;
+  }
+
+  /* ---------- построение интерфейса ---------- */
+  function buildBoard() {
+    boardEl.innerHTML = ''; tiles = [];
+    for (let r = 0; r < MAX_TRIES; r++) {
+      const rowEl = document.createElement('div'); rowEl.className = 'row';
+      const t = [];
+      for (let c = 0; c < WORD_LEN; c++) { const d = document.createElement('div'); d.className = 'tile'; rowEl.appendChild(d); t.push(d); }
+      boardEl.appendChild(rowEl); tiles.push(t);
+    }
+  }
+  function buildKeyboard() {
+    kbEl.innerHTML = ''; keyEls.length = 0;
+    LAYOUT.forEach((keys) => {
+      const rowEl = document.createElement('div'); rowEl.className = 'krow';
+      const arr = keys.map((k) => {
+        const d = document.createElement('div');
+        d.className = 'key' + (k.length > 1 ? ' wide' : '');
+        d.textContent = k === 'ENTER' ? 'Ввод' : k === 'BACK' ? '⌫' : k;
+        d.dataset.k = k;
+        d.addEventListener('click', () => tapKey(d));
+        rowEl.appendChild(d); return d;
+      });
+      kbEl.appendChild(rowEl); keyEls.push(arr);
+    });
+  }
+  function paintFocus() {
+    keyEls.forEach((r) => r.forEach((k) => k.classList.remove('focus')));
+    if (!over) keyEls[kr][kc].classList.add('focus');
+  }
+  function renderStats() { $('stats').textContent = 'Побед: ' + stats.won + ' из ' + stats.played; }
+  function say(msg, isErr) { hintEl.textContent = msg; hintEl.className = isErr ? 'err' : ''; }
+
+  /* ---------- игра ---------- */
+  function newGame() {
+    answer = pickWord(); row = 0; cur = ''; busy = false; over = false;
+    for (const k in keyState) delete keyState[k];
+    buildBoard();
+    keyEls.forEach((r) => r.forEach((k) => { k.classList.remove('g', 'y', 'b'); }));
+    $('over').classList.remove('show');
+    say('Угадайте слово из 5 букв');
+    renderStats(); paintFocus();
+  }
+
+  function typeLetter(ch) {
+    if (busy || over || cur.length >= WORD_LEN) return;
+    tiles[row][cur.length].textContent = ch;
+    tiles[row][cur.length].classList.add('filled');
+    cur += ch; say('Угадайте слово из 5 букв');
+  }
+  function backspace() {
+    if (busy || over || !cur.length) return;
+    cur = cur.slice(0, -1);
+    const t = tiles[row][cur.length]; t.textContent = ''; t.classList.remove('filled');
+  }
+  function submit() {
+    if (busy || over) return;
+    if (cur.length < WORD_LEN) {
+      say('Нужно ' + WORD_LEN + ' букв', true);
+      const el = boardEl.children[row]; el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+      return;
+    }
+    busy = true;
+    const guess = cur, res = evaluate(guess, answer), r = row;
+    res.forEach((s, i) => {
+      setTimeout(() => tiles[r][i].classList.add('flip'), i * 300);
+      setTimeout(() => { tiles[r][i].classList.remove('filled'); tiles[r][i].classList.add(s); }, i * 300 + 300);
+    });
+    setTimeout(() => {
+      res.forEach((s, i) => {
+        const ch = guess[i], old = keyState[ch];
+        if (!old || (old === 'b' && s !== 'b') || (old === 'y' && s === 'g')) keyState[ch] = s;
+      });
+      keyEls.forEach((rw) => rw.forEach((k) => {
+        const s = keyState[k.dataset.k]; k.classList.remove('g', 'y', 'b'); if (s) k.classList.add(s);
+      }));
+      if (guess === answer) return finish(true);
+      row++; cur = '';
+      if (row >= MAX_TRIES) return finish(false);
+      busy = false;
+      say('Осталось попыток: ' + (MAX_TRIES - row));
+    }, 4 * 300 + 650);
+  }
+  function finish(won) {
+    over = true; busy = false;
+    stats.played++; if (won) stats.won++; save('slovo.stats', stats); renderStats();
+    $('over-title').textContent = won ? 'Угадали!' : 'Не угадали';
+    const a = $('answer'); a.innerHTML = '';
+    for (const ch of answer) { const d = document.createElement('div'); d.className = 'tile ' + (won ? 'g' : 'b'); d.textContent = ch; a.appendChild(d); }
+    $('over').classList.add('show'); paintFocus();
+  }
+
+  /* ---------- управление ---------- */
+  function press() {
+    if (over) return newGame();
+    const k = keyEls[kr][kc].dataset.k;
+    if (k === 'ENTER') submit(); else if (k === 'BACK') backspace(); else typeLetter(k);
+  }
+  function move(dir) {
+    if (over) return;
+    if (dir === 'left')  kc = Math.max(0, kc - 1);
+    if (dir === 'right') kc = Math.min(keyEls[kr].length - 1, kc + 1);
+    if (dir === 'up' || dir === 'down') {
+      const nr = kr + (dir === 'up' ? -1 : 1);
+      if (nr < 0 || nr >= keyEls.length) return;
+      const r = keyEls[kr][kc].getBoundingClientRect(), cx = r.left + r.width / 2;
+      let best = 0, bd = 1e9;
+      keyEls[nr].forEach((k, i) => { const b = k.getBoundingClientRect(), d = Math.abs(b.left + b.width / 2 - cx); if (d < bd) { bd = d; best = i; } });
+      kr = nr; kc = best;
+    }
+    paintFocus();
+  }
+
+  // Тап по клавише на сенсорном экране: переносим на неё фокус (как на ТВ) и сразу нажимаем.
+  function tapKey(el) {
+    keyEls.forEach((row, r) => { const c = row.indexOf(el); if (c !== -1) { kr = r; kc = c; } });
+    paintFocus(); press();
+  }
+
+  // Вызывается из Android (MainActivity) для кнопок пульта.
+  window.tvKey = function (cmd) {
+    if (cmd === 'ok') press();
+    else if (cmd === 'enter') { over ? newGame() : submit(); }
+    else move(cmd);
+  };
+
+  // Обычная клавиатура (для проверки на компьютере или USB-клавиатуры на ТВ).
+  document.addEventListener('keydown', (e) => {
+    const k = e.key;
+    if (k === 'ArrowLeft') move('left'); else if (k === 'ArrowRight') move('right');
+    else if (k === 'ArrowUp') move('up'); else if (k === 'ArrowDown') move('down');
+    else if (k === 'Enter') { over ? newGame() : submit(); }
+    else if (k === 'Backspace') backspace();
+    else if (k.length === 1) {
+      const ch = k.toLowerCase().replace('ё', 'е');
+      if (/^[а-яъь]$/.test(ch) && !over) typeLetter(ch);
+    } else return;
+    e.preventDefault();
+  });
+
+  $('again').addEventListener('click', () => { if (over) newGame(); });
+
+  buildKeyboard(); newGame();
+  window.__slovo = { get answer() { return answer; }, newGame };   // для отладки
+})();
+</script>
+</body>
+</html>
